@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STM32 UART · SPI · I2C 분석 정리</title>
+<style>
+:root{
+  --pink:#f6dce8;--pink2:#fbeef3;--green:#dcefe3;--green2:#eff8f1;
+  --blue:#dceaf7;--violet:#e9e2f5;--ink:#263344;--muted:#687789;
+  --line:#e4e9ef;--paper:#fff;--bg:#f6f8fb;--accent:#527d70;
+  --warn:#fff4df;--warnline:#e9c77d;--code:#182536;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Malgun Gothic",sans-serif;line-height:1.7}
+header{background:linear-gradient(120deg,var(--pink2),var(--green2) 55%,var(--blue));padding:52px 24px 42px;border-bottom:1px solid var(--line)}
+.hero,.layout{max-width:1120px;margin:auto}
+.eyebrow{font-size:.78rem;letter-spacing:.12em;font-weight:800;color:#59766d;text-transform:uppercase}
+h1{font-size:clamp(2rem,5vw,3.1rem);line-height:1.18;margin:12px 0}
+.subtitle{color:#526274;max-width:760px}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:22px}
+.pill{border:1px solid #d8e1e8;background:#ffffffb8;border-radius:99px;padding:5px 12px;font-size:.82rem}
+.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:28px;padding:28px 20px 70px}
+nav{position:sticky;top:16px;align-self:start;background:white;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 5px 22px #26334408}
+nav strong{display:block;margin:0 0 8px}
+nav a{display:block;color:#536477;text-decoration:none;padding:7px 9px;border-radius:8px;font-size:.9rem}
+nav a:hover{background:var(--green2);color:#315c4e}
+main{min-width:0}
+section,.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 5px 22px #26334406}
+h2{font-size:1.48rem;margin:0 0 14px}
+h3{font-size:1.08rem;margin:22px 0 8px}
+h4{margin:12px 0 6px}
+p{margin:8px 0}
+.small{font-size:.88rem;color:var(--muted)}
+.lead{font-size:1.04rem}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.metric{border-radius:13px;padding:16px;background:var(--green2);border:1px solid #e1eee5}
+.metric:nth-child(2){background:var(--pink2);border-color:#f1e1e8}
+.metric:nth-child(3){background:var(--blue);border-color:#e0e9f2}
+.metric b{display:block;font-size:.82rem;color:var(--muted)}
+.metric code{font-size:1.03rem;font-weight:800;overflow-wrap:anywhere}
+.callout{padding:14px 16px;border-radius:12px;background:var(--green2);border-left:4px solid #8ab59c;margin:14px 0}
+.warning{padding:14px 16px;border-radius:12px;background:var(--warn);border:1px solid var(--warnline);margin:14px 0}
+table{border-collapse:collapse;width:100%;font-size:.91rem;margin:12px 0}
+th,td{padding:10px 11px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f4f7f9;font-weight:750}
+tr:last-child td{border-bottom:0}
+code{font-family:Consolas,"Cascadia Code",monospace;background:#f1f4f7;padding:2px 5px;border-radius:5px;color:#30465d}
+pre{background:var(--code);color:#e9f0f7;padding:16px;border-radius:12px;overflow:auto;font-size:.86rem;line-height:1.55}
+pre code{background:none;color:inherit;padding:0}
+.tag{display:inline-block;border-radius:7px;padding:3px 8px;font-size:.76rem;font-weight:800;background:var(--pink2);color:#87546d}
+.tag.green{background:var(--green2);color:#426e56}
+.tag.blue{background:var(--blue);color:#426487}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0}
+.flow span{padding:9px 12px;background:#f2f6f8;border:1px solid var(--line);border-radius:9px;font-size:.88rem}
+.flow i{font-style:normal;color:#91a0ae}
+.kbd{font-size:.8rem;border:1px solid #d6dce3;border-bottom-width:2px;padding:1px 6px;border-radius:5px;background:#fff}
+a{color:#3c718a}
+footer{text-align:center;padding:28px;color:var(--muted);font-size:.85rem}
+@media(max-width:850px){.layout{grid-template-columns:1fr}nav{position:static}.grid{grid-template-columns:1fr}}
+@media print{body{background:white}.layout{display:block;padding:0}nav{display:none}section,.card{box-shadow:none;break-inside:avoid}header{padding:25px}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+<header>
+ <div class="hero">
+  <div class="eyebrow">Embedded Study · Register & Pin Analysis</div>
+  <h1>STM32 UART · SPI · I2C<br>레지스터 및 핀 분석</h1>
+  <p class="subtitle">STM32CubeMX가 생성한 프로젝트를 확인, 주변장치 인스턴스 → GPIO 핀 → Alternate Function → Base Address → Register Offset을 연결해 이해하는 데 중점을 둠~</p>
+  <div class="pills">
+   <span class="pill">NUCLEO-F446RE</span><span class="pill">STM32F446RETx</span>
+   <span class="pill">LQFP64</span><span class="pill">CubeMX 6.18.1</span>
+   <span class="pill">STM32Cube FW_F4 V1.28.3</span>
+  </div>
+ </div>
+</header>
+<div class="layout">
+<nav>
+ <strong>목차</strong>
+ <a href="#overview">1. 프로젝트 개요</a>
+ <a href="#workflow">2. 코드 생성 구조</a>
+ <a href="#uart">3. UART / USART1</a>
+ <a href="#spi">4. SPI2</a>
+ <a href="#i2c">5. I2C1</a>
+ <a href="#address">6. 주소 계산</a>
+ <a href="#compare">7. 통신 비교</a>
+ <a href="#findings">8. 분석 시 주의점</a>
+ <a href="#sources">9. 참고 문서</a>
+</nav>
+<main>
+<section id="overview">
+ <span class="tag green">실제 ZIP 프로젝트 기준</span>
+ <h2>1. 프로젝트 개요</h2>
+ <p class="lead">업로드된 <code>week_communication_study.zip</code>의 <code>.ioc</code>, <code>main.c</code>, <code>stm32f4xx_hal_msp.c</code>, 헤더 파일을 서로 대조해 정리했다.</p>
+ <div class="grid">
+  <div class="metric"><b>개발 보드</b><code>NUCLEO-F446RE</code></div>
+  <div class="metric"><b>MCU / 패키지</b><code>STM32F446RET6 / LQFP64</code></div>
+  <div class="metric"><b>통신 인스턴스</b><code>USART1 · SPI2 · I2C1</code></div>
+ </div>
+ <div class="callout"><b>프로젝트 구조 참고</b><br>CubeMX의 Advanced 구조로 생성되어 통신 초기화 함수가 별도 <code>usart.c</code>, <code>spi.c</code>, <code>i2c.c</code>에 분리되지 않고 <code>Core/Src/main.c</code>에 모여 있다. 핀/주변장치 클럭 연결은 <code>Core/Src/stm32f4xx_hal_msp.c</code>에서 확인한다.</div>
+ <h3>이번 프로젝트에서 실제로 선택된 통신</h3>
+ <table><thead><tr><th>기능</th><th>선택된 인스턴스</th><th>설정 파일 근거</th></tr></thead><tbody>
+ <tr><td>UART 비동기 통신</td><td><b>USART1</b></td><td><code>USART1.VirtualMode=VM_ASYNC</code></td></tr>
+ <tr><td>SPI</td><td><b>SPI2</b></td><td><code>SPI2.Mode=SPI_MODE_MASTER</code></td></tr>
+ <tr><td>I2C</td><td><b>I2C1</b></td><td><code>PB6=I2C1_SCL</code>, <code>PB7=I2C1_SDA</code></td></tr>
+ </tbody></table>
+ <p class="small">중요: USART는 동기/비동기 기능을 모두 가질 수 있는 주변장치 이름이고, 이번 설정은 Asynchronous이므로 과제에서는 UART 통신으로 설명해도 된다.</p>
+</section>
+
+<section id="workflow">
+ <h2>2. CubeMX 생성 코드의 흐름</h2>
+ <p>이번 프로젝트는 <code>main.c</code>가 애플리케이션 초기화 흐름을 담당하고, HAL 초기화 과정에서 MSP 함수가 호출되어 실제 GPIO와 주변장치 클럭을 연결한다.</p>
+ <div class="flow">
+  <span><b>main()</b></span><i>→</i><span>HAL_Init()</span><i>→</i><span>SystemClock_Config()</span><i>→</i><span>MX_GPIO_Init()</span><i>→</i><span>MX_I2C1_Init()</span><i>→</i><span>MX_SPI2_Init()</span><i>→</i><span>MX_USART1_UART_Init()</span>
+ </div>
+ <p>각 <code>HAL_xxx_Init()</code> 함수는 해당 핸들의 <code>Instance</code>와 <code>Init</code> 설정을 사용한다. HAL 초기화 중 <code>HAL_xxx_MspInit()</code>이 호출되어 GPIO Alternate Function 및 주변장치 클럭을 설정한다.</p>
+ <table><thead><tr><th>파일</th><th>이번 프로젝트에서 볼 내용</th></tr></thead><tbody>
+ <tr><td><code>Core/Src/main.c</code></td><td>핸들 선언, 초기화 순서, 통신 파라미터</td></tr>
+ <tr><td><code>Core/Src/stm32f4xx_hal_msp.c</code></td><td>GPIO 포트/핀, AF 번호, 주변장치 클럭 활성화</td></tr>
+ <tr><td><code>Core/Inc/main.h</code></td><td>핀 매크로 및 주변장치 관련 선언</td></tr>
+ <tr><td><code>week_communication_study.ioc</code></td><td>CubeMX 원본 설정 및 핀 할당</td></tr>
+ <tr><td><code>Drivers/CMSIS/Device/.../stm32f446xx.h</code></td><td>MCU 주변장치 주소/레지스터 구조 정의를 교차 확인</td></tr>
+ </tbody></table>
+ <div class="warning"><b>현재 프로젝트는 초기화 설정 분석용 상태</b><br><code>main.c</code>에는 UART 송신/수신, SPI 송수신, I2C 송수신 API 호출이 없다. 따라서 통신 파라미터와 핀·레지스터 연결은 분석할 수 있지만, 실제 데이터 전송을 구현하거나 검증한 프로젝트는 아니다.</div>
+</section>
+
+<section id="uart">
+ <span class="tag">비동기 직렬 통신</span>
+ <h2>3. UART 분석 — USART1</h2>
+ <h3>3-1. CubeMX / main.c 설정</h3>
+ <pre><code>huart1.Instance = USART1;
+huart1.Init.BaudRate = 115200;
+huart1.Init.WordLength = UART_WORDLENGTH_8B;
+huart1.Init.StopBits = UART_STOPBITS_1;
+huart1.Init.Parity = UART_PARITY_NONE;
+huart1.Init.Mode = UART_MODE_TX_RX;
+huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+HAL_UART_Init(&huart1);</code></pre>
+ <table><thead><tr><th>설정 항목</th><th>프로젝트 값</th><th>의미</th></tr></thead><tbody>
+ <tr><td>Instance</td><td>USART1</td><td>USART1 주변장치 선택</td></tr>
+ <tr><td>BaudRate</td><td>115200</td><td>초당 115,200 bit의 전송 속도 설정</td></tr>
+ <tr><td>WordLength</td><td>8B</td><td>프레임 데이터 길이 설정(패리티 설정과 실제 데이터 비트 해석은 함께 고려)</td></tr>
+ <tr><td>StopBits</td><td>1</td><td>정지 비트 1개</td></tr>
+ <tr><td>Parity</td><td>NONE</td><td>패리티 검사 미사용</td></tr>
+ <tr><td>Mode</td><td>TX_RX</td><td>송신과 수신 모두 활성화</td></tr>
+ <tr><td>HwFlowCtl</td><td>NONE</td><td>RTS/CTS 하드웨어 흐름 제어 미사용</td></tr>
+ <tr><td>OverSampling</td><td>16</td><td>16배 오버샘플링</td></tr>
+ </tbody></table>
+ <p><b>프레임 요약:</b> 일반적으로 115200, 8-N-1 설정이라고 부른다. 즉 1 start bit, 8 data bits, no parity, 1 stop bit.</p>
+ <h3>3-2. 핀 및 Alternate Function</h3>
+ <table><thead><tr><th>신호</th><th>MCU GPIO</th><th>AF</th><th>LQFP64 물리 핀</th><th>MSP 코드</th></tr></thead><tbody>
+ <tr><td>USART1_TX</td><td>PA9</td><td>AF7</td><td>42</td><td><code>GPIO_AF7_USART1</code></td></tr>
+ <tr><td>USART1_RX</td><td>PA10</td><td>AF7</td><td>43</td><td><code>GPIO_AF7_USART1</code></td></tr>
+ </tbody></table>
+ <p>근거: <code>HAL_UART_MspInit()</code>에서 <code>GPIOA</code>, <code>GPIO_PIN_9|GPIO_PIN_10</code>, <code>GPIO_MODE_AF_PP</code>, <code>GPIO_AF7_USART1</code>을 설정한다.</p>
+ <h3>3-3. Base Address 및 레지스터</h3>
+ <div class="metric"><b>USART1 Base Address · APB2</b><code>0x40011000</code></div>
+ <table><thead><tr><th>레지스터</th><th>Offset</th><th>USART1 실제 주소</th><th>주요 역할</th></tr></thead><tbody>
+ <tr><td>SR</td><td>0x00</td><td><code>0x40011000</code></td><td>송수신 상태 플래그</td></tr>
+ <tr><td>DR</td><td>0x04</td><td><code>0x40011004</code></td><td>송신/수신 데이터 접근</td></tr>
+ <tr><td>BRR</td><td>0x08</td><td><code>0x40011008</code></td><td>Baud rate 분주값</td></tr>
+ <tr><td>CR1</td><td>0x0C</td><td><code>0x4001100C</code></td><td>USART 활성화, 송수신, word length, parity 등</td></tr>
+ <tr><td>CR2</td><td>0x10</td><td><code>0x40011010</code></td><td>Stop bit 등 설정</td></tr>
+ <tr><td>CR3</td><td>0x14</td><td><code>0x40011014</code></td><td>추가 제어 및 흐름 제어 등</td></tr>
+ <tr><td>GTPR</td><td>0x18</td><td><code>0x40011018</code></td><td>Guard time / prescaler</td></tr>
+ </tbody></table>
+ <div class="callout"><b>해석:</b> USART1 주변장치 레지스터는 <code>0x40011000</code>을 시작 주소로 한다. 예를 들어 BRR의 주소는 <code>0x40011000 + 0x08 = 0x40011008</code>이다.</div>
+</section>
+
+<section id="spi">
+ <span class="tag blue">동기식 직렬 통신</span>
+ <h2>4. SPI 분석 — SPI2</h2>
+ <h3>4-1. CubeMX / main.c 설정</h3>
+ <pre><code>hspi2.Instance = SPI2;
+hspi2.Init.Mode = SPI_MODE_MASTER;
+hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+hspi2.Init.NSS = SPI_NSS_SOFT;
+hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+HAL_SPI_Init(&hspi2);</code></pre>
+ <table><thead><tr><th>설정 항목</th><th>프로젝트 값</th><th>의미</th></tr></thead><tbody>
+ <tr><td>Instance</td><td>SPI2</td><td>SPI2 선택</td></tr>
+ <tr><td>Mode</td><td>MASTER</td><td>Master가 통신 시작 및 Clock 생성</td></tr>
+ <tr><td>Direction</td><td>2LINES</td><td>MOSI/MISO 분리된 양방향 데이터선</td></tr>
+ <tr><td>DataSize</td><td>8BIT</td><td>한 데이터 단위 8비트</td></tr>
+ <tr><td>CLKPolarity</td><td>LOW</td><td>CPOL = 0, 유휴 Clock Low</td></tr>
+ <tr><td>CLKPhase</td><td>1EDGE</td><td>CPHA = 0, 첫 번째 Clock edge에서 샘플링</td></tr>
+ <tr><td>NSS</td><td>SOFT</td><td>하드웨어 NSS 핀 제어 대신 소프트웨어 관리</td></tr>
+ <tr><td>Prescaler</td><td>2</td><td>SPI Clock = PCLK1 / 2</td></tr>
+ <tr><td>FirstBit</td><td>MSB</td><td>최상위 비트부터 전송</td></tr>
+ <tr><td>CRC</td><td>DISABLE</td><td>CRC 계산 미사용</td></tr>
+ </tbody></table>
+ <p>현재 CubeMX 계산값은 약 21 Mbit/s로 표시된다. 프로젝트의 PCLK1은 42 MHz이고 prescaler가 2이므로 SPI2 SCK는 21 MHz로 계산된다(실제 외부 신호 검증은 하지 않음).</p>
+ <h3>4-2. 핀 및 Alternate Function</h3>
+ <table><thead><tr><th>신호</th><th>MCU GPIO</th><th>AF</th><th>LQFP64 물리 핀</th><th>역할</th></tr></thead><tbody>
+ <tr><td>SPI2_MOSI</td><td>PC1</td><td>AF7</td><td>9</td><td>Master → Slave 데이터</td></tr>
+ <tr><td>SPI2_MISO</td><td>PC2</td><td>AF5</td><td>10</td><td>Slave → Master 데이터</td></tr>
+ <tr><td>SPI2_SCK</td><td>PB10</td><td>AF5</td><td>29</td><td>Clock 신호</td></tr>
+ <tr><td>NSS</td><td>별도 GPIO 미할당</td><td>해당 없음</td><td>—</td><td>Software NSS 설정</td></tr>
+ </tbody></table>
+ <p>주의: STM32F446의 PC1에서 SPI2_MOSI는 AF7이다. AF 번호가 모든 SPI 핀에서 동일한 것은 아니다. PC2와 PB10은 AF5이다. 데이터시트 Table 11의 핀별 행을 확인해야 한다.</p>
+ <h3>4-3. Base Address 및 레지스터</h3>
+ <div class="metric"><b>SPI2 Base Address · APB1</b><code>0x40003800</code></div>
+ <table><thead><tr><th>레지스터</th><th>Offset</th><th>SPI2 실제 주소</th><th>주요 역할</th></tr></thead><tbody>
+ <tr><td>CR1</td><td>0x00</td><td><code>0x40003800</code></td><td>Master/Slave, CPOL/CPHA, prescaler, bit order</td></tr>
+ <tr><td>CR2</td><td>0x04</td><td><code>0x40003804</code></td><td>인터럽트 및 DMA 관련 설정</td></tr>
+ <tr><td>SR</td><td>0x08</td><td><code>0x40003808</code></td><td>TXE, RXNE, BSY 등 상태</td></tr>
+ <tr><td>DR</td><td>0x0C</td><td><code>0x4000380C</code></td><td>송신/수신 데이터</td></tr>
+ <tr><td>CRCPR</td><td>0x10</td><td><code>0x40003810</code></td><td>CRC 다항식</td></tr>
+ <tr><td>RXCRCR</td><td>0x14</td><td><code>0x40003814</code></td><td>수신 CRC</td></tr>
+ <tr><td>TXCRCR</td><td>0x18</td><td><code>0x40003818</code></td><td>송신 CRC</td></tr>
+ <tr><td>I2SCFGR</td><td>0x1C</td><td><code>0x4000381C</code></td><td>I2S 설정 레지스터</td></tr>
+ <tr><td>I2SPR</td><td>0x20</td><td><code>0x40003820</code></td><td>I2S prescaler</td></tr>
+ </tbody></table>
+ <div class="callout"><b>해석:</b> SPI의 기본 동작 설정은 CR1, 상태 확인은 SR, 데이터 접근은 DR이 핵심이다. SPI는 송신과 수신이 Clock에 맞춰 동시에 진행될 수 있다.</div>
+</section>
+
+<section id="i2c">
+ <span class="tag green">동기식 · 주소 기반 통신</span>
+ <h2>5. I2C 분석 — I2C1</h2>
+ <h3>5-1. CubeMX / main.c 설정</h3>
+ <pre><code>hi2c1.Instance = I2C1;
+hi2c1.Init.ClockSpeed = 100000;
+hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+hi2c1.Init.OwnAddress1 = 0;
+hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+hi2c1.Init.OwnAddress2 = 0;
+hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+HAL_I2C_Init(&hi2c1);</code></pre>
+ <table><thead><tr><th>설정 항목</th><th>프로젝트 값</th><th>의미</th></tr></thead><tbody>
+ <tr><td>Instance</td><td>I2C1</td><td>I2C1 선택</td></tr>
+ <tr><td>ClockSpeed</td><td>100000</td><td>100 kHz 표준 모드 설정</td></tr>
+ <tr><td>DutyCycle</td><td>DUTYCYCLE_2</td><td>표준 모드에서 2:1 duty 설정</td></tr>
+ <tr><td>OwnAddress1</td><td>0</td><td>장치 자신의 주소 필드</td></tr>
+ <tr><td>AddressingMode</td><td>7BIT</td><td>7비트 주소 모드</td></tr>
+ <tr><td>DualAddressMode</td><td>DISABLE</td><td>두 번째 주소 비활성화</td></tr>
+ <tr><td>GeneralCallMode</td><td>DISABLE</td><td>General Call 비활성화</td></tr>
+ <tr><td>NoStretchMode</td><td>DISABLE</td><td>Clock Stretching을 금지하지 않음</td></tr>
+ </tbody></table>
+ <p class="small">OwnAddress1=0은 이 프로젝트에서 설정한 값이다. 이것만으로 Master/Slave 역할이 확정되는 것은 아니며, 실제 동작 역할은 호출하는 I2C API와 통신 흐름에 따라 결정된다.</p>
+ <h3>5-2. 핀 및 Alternate Function</h3>
+ <table><thead><tr><th>신호</th><th>MCU GPIO</th><th>AF</th><th>LQFP64 물리 핀</th><th>설정</th></tr></thead><tbody>
+ <tr><td>I2C1_SCL</td><td>PB6</td><td>AF4</td><td>58</td><td>Alternate Function, Open-Drain</td></tr>
+ <tr><td>I2C1_SDA</td><td>PB7</td><td>AF4</td><td>59</td><td>Alternate Function, Open-Drain</td></tr>
+ </tbody></table>
+ <p>MSP 코드에서 <code>GPIO_MODE_AF_OD</code>, <code>GPIO_NOPULL</code>, <code>GPIO_AF4_I2C1</code>로 설정한다. Open-Drain I/O는 외부 또는 보드상의 Pull-up 경로가 필요하다. 이 프로젝트의 GPIO 초기화 코드에는 내부 Pull-up이 설정되어 있지 않다.</p>
+ <h3>5-3. Base Address 및 레지스터</h3>
+ <div class="metric"><b>I2C1 Base Address · APB1</b><code>0x40005400</code></div>
+ <table><thead><tr><th>레지스터</th><th>Offset</th><th>I2C1 실제 주소</th><th>주요 역할</th></tr></thead><tbody>
+ <tr><td>CR1</td><td>0x00</td><td><code>0x40005400</code></td><td>START/STOP, ACK, PE 등 제어</td></tr>
+ <tr><td>CR2</td><td>0x04</td><td><code>0x40005404</code></td><td>주변장치 입력 Clock 및 인터럽트 설정</td></tr>
+ <tr><td>OAR1</td><td>0x08</td><td><code>0x40005408</code></td><td>자신의 기본 주소</td></tr>
+ <tr><td>OAR2</td><td>0x0C</td><td><code>0x4000540C</code></td><td>두 번째 주소</td></tr>
+ <tr><td>DR</td><td>0x10</td><td><code>0x40005410</code></td><td>송신/수신 데이터</td></tr>
+ <tr><td>SR1</td><td>0x14</td><td><code>0x40005414</code></td><td>이벤트 및 오류 상태 플래그</td></tr>
+ <tr><td>SR2</td><td>0x18</td><td><code>0x40005418</code></td><td>버스 상태 및 Master/Slave 상태</td></tr>
+ <tr><td>CCR</td><td>0x1C</td><td><code>0x4000541C</code></td><td>SCL Clock 제어값</td></tr>
+ <tr><td>TRISE</td><td>0x20</td><td><code>0x40005420</code></td><td>SCL 상승 시간 설정</td></tr>
+ <tr><td>FLTR</td><td>0x24</td><td><code>0x40005424</code></td><td>아날로그/디지털 필터 설정</td></tr>
+ </tbody></table>
+ <div class="callout"><b>해석:</b> I2C는 SDA로 데이터를 주고받고 SCL로 동기화한다. 주소를 이용해 통신 대상을 지정하며, START/STOP 및 ACK/NACK 절차가 통신 흐름에 포함된다.</div>
+</section>
+
+<section id="address">
+ <h2>6. Base Address와 Register Offset 읽는 법</h2>
+ <p>주변장치의 Base Address는 해당 주변장치 레지스터 영역의 시작 주소다. 각 레지스터는 Base Address에서 일정한 Offset만큼 떨어져 있다.</p>
+ <pre><code>Register Address = Peripheral Base Address + Register Offset
+
+예: USART1 BRR
+Base Address = 0x40011000
+BRR Offset   = 0x00000008
+Register     = 0x40011008</code></pre>
+ <table><thead><tr><th>주변장치</th><th>Base Address</th><th>버스</th><th>선택 이유</th></tr></thead><tbody>
+ <tr><td>USART1</td><td><code>0x40011000</code></td><td>APB2</td><td>main.c의 <code>huart1.Instance=USART1</code></td></tr>
+ <tr><td>SPI2</td><td><code>0x40003800</code></td><td>APB1</td><td>main.c의 <code>hspi2.Instance=SPI2</code></td></tr>
+ <tr><td>I2C1</td><td><code>0x40005400</code></td><td>APB1</td><td>main.c의 <code>hi2c1.Instance=I2C1</code></td></tr>
+ </tbody></table>
+ <p>RM0390의 Memory Map / peripheral boundary address 표에서 Base Address를 찾고, 각 통신 장의 Register Map에서 Offset을 확인한다.</p>
+</section>
+
+<section id="compare">
+ <h2>7. UART · SPI · I2C 비교 분석</h2>
+ <table><thead><tr><th>비교 항목</th><th>UART (USART1)</th><th>SPI (SPI2)</th><th>I2C (I2C1)</th></tr></thead><tbody>
+ <tr><td>동기 방식</td><td>비동기</td><td>동기</td><td>동기</td></tr>
+ <tr><td>데이터 핀</td><td>TX, RX</td><td>MOSI, MISO</td><td>SDA</td></tr>
+ <tr><td>Clock 핀</td><td>없음</td><td>SCK</td><td>SCL</td></tr>
+ <tr><td>선택 신호</td><td>없음</td><td>NSS (이번 프로젝트는 software NSS)</td><td>주소 + START/STOP</td></tr>
+ <tr><td>Base Address</td><td><code>0x40011000</code></td><td><code>0x40003800</code></td><td><code>0x40005400</code></td></tr>
+ <tr><td>주요 데이터 레지스터</td><td>DR</td><td>DR</td><td>DR</td></tr>
+ <tr><td>주요 상태 레지스터</td><td>SR</td><td>SR</td><td>SR1, SR2</td></tr>
+ <tr><td>속도 설정</td><td>BRR</td><td>CR1.BR 분주 비트</td><td>CCR, TRISE 및 CR2</td></tr>
+ <tr><td>이번 설정 속도</td><td>115200 baud</td><td>약 21 MHz SCK</td><td>100 kHz</td></tr>
+ <tr><td>핀 AF</td><td>PA9/PA10 AF7</td><td>PC1 AF7, PC2/PB10 AF5</td><td>PB6/PB7 AF4</td></tr>
+ </tbody></table>
+ <h3>핵심 차이 요약</h3>
+ <ul>
+  <li><b>UART:</b> 별도 Clock 선 없이 양쪽 장치가 같은 Baud Rate를 사용해 비동기 직렬 데이터를 주고받는다.</li>
+  <li><b>SPI:</b> Master가 SCK를 생성하고 MOSI/MISO로 데이터를 교환한다. Full-Duplex 통신이 가능하다.</li>
+  <li><b>I2C:</b> SDA/SCL 두 선을 여러 장치가 공유하고, 주소와 ACK/NACK 절차를 통해 대상을 구분한다.</li>
+ </ul>
+</section>
+
+<section id="findings">
+ <h2>8. 프로젝트에서 발견한 주의점</h2>
+ <div class="warning">
+  <b>① USART1과 USART2 핀 설정이 모두 보임 — 오류로 단정하지 말 것</b>
+  <p><code>main.c</code>의 <code>MX_GPIO_Init()</code>는 PA2/PA3를 <code>GPIO_AF7_USART2</code>로 설정한다. 이는 NUCLEO-F446RE 보드의 ST-LINK Virtual COM Port 경로와 연관된 보드 공통 설정이다.</p>
+  <p>실제 사용자 통신 주변장치 초기화는 <code>MX_USART1_UART_Init()</code>이며, <code>stm32f4xx_hal_msp.c</code>에서 PA9/PA10을 <code>GPIO_AF7_USART1</code>로 설정한다. 따라서 과제의 UART 분석 대상은 USART1(PA9/PA10)이다.</p>
+ </div>
+ <div class="warning">
+  <b>② SPI2 NSS 핀이 별도로 할당되지 않음</b>
+  <p><code>SPI_NSS_SOFT</code>로 설정되어 있어 하드웨어 NSS 핀을 자동 제어하는 구성이 아니다. 실제 외부 Slave를 선택하려면 별도 GPIO를 Chip Select로 제어하는 방식이 필요하지만, 현재 코드는 통신 동작을 구현하지 않는다.</p>
+ </div>
+ <div class="callout">
+  <b>③ SPI2의 PC1 MOSI AF7은 데이터시트와 일치</b>
+  <p>STM32F446 데이터시트 Table 11에서 PC1의 SPI2_MOSI는 AF7, PC2의 SPI2_MISO는 AF5로 표기된다. 따라서 MSP 파일의 PC1 AF7 설정은 유효한 핀 매핑이다. PC3도 SPI2_MOSI 대체 핀으로 제시되지만, 이번 프로젝트는 PC1을 선택했다.</p>
+ </div>
+ <div class="callout">
+  <b>④ I2C GPIO Pull 설정</b>
+  <p>PB6/PB7은 Open-Drain 및 GPIO_NOPULL로 설정됐다. I2C 버스에는 Pull-up이 필요하므로 실제 보드/외부 회로에 Pull-up 경로가 있는지 확인해야 한다. 소스 코드만으로 보드의 저항 연결 상태를 단정하지 않는다.</p>
+ </div>
+ <div class="warning">
+  <b>⑤ 통신 API는 아직 없음</b>
+  <p>현재 코드는 초기화만 한다. <code>HAL_UART_Transmit()</code>, <code>HAL_SPI_TransmitReceive()</code>, <code>HAL_I2C_Master_Transmit()</code> 같은 데이터 송수신 호출이 확인되지 않는다. 따라서 보고서에는 “CubeMX 통신 주변장치 설정 및 핀/레지스터 분석”으로 기술하고, “통신 테스트 완료”라고 쓰지 않는다.</p>
+ </div>
+</section>
+
+<section id="sources">
+ <h2>9. 참고 문서 및 페이지</h2>
+ <table><thead><tr><th>문서</th><th>확인할 부분</th></tr></thead><tbody>
+ <tr><td><b>RM0390 Rev 9</b></td><td>Memory map 표(문서 p.57~59 부근), I2C Register Map(24장), USART Register Map(25장), SPI Register Map(26장)</td></tr>
+ <tr><td><b>DS10693 Rev 11</b></td><td>LQFP64 pinout: 문서 p.40, Table 10 pin description, Table 11 Alternate Function: 문서 p.58~61</td></tr>
+ <tr><td><b>UM1724</b></td><td>NUCLEO-64 보드 커넥터, ST-LINK 및 보드 배선 참고</td></tr>
+ <tr><td><b>프로젝트 소스</b></td><td><code>week_communication_study.ioc</code>, <code>Core/Src/main.c</code>, <code>Core/Src/stm32f4xx_hal_msp.c</code></td></tr>
+ </tbody></table>
+ <ul>
+  <li><a href="https://www.st.com/resource/en/reference_manual/dm00135183.pdf" target="_blank" rel="noopener">ST 공식 RM0390 Reference Manual</a></li>
+  <li><a href="https://www.st.com/resource/en/datasheet/DM00141306.pdf" target="_blank" rel="noopener">ST 공식 DS10693 STM32F446xC/E Datasheet</a></li>
+  <li><a href="https://www.st.com/resource/en/user_manual/um1724-stm32-nucleo64-boards-mb1136-stmicroelectronics.pdf" target="_blank" rel="noopener">ST 공식 UM1724 NUCLEO-64 User Manual</a></li>
+ </ul>
+ <p class="small">주소 및 핀 기능은 STM32F446RETx / LQFP64 기준으로 정리했다. 주변장치 Base Address와 Register Offset은 RM0390을, 물리 핀 번호 및 AF 매핑은 DS10693을 기준으로 교차 확인해야 한다.</p>
+</section>
+</main>
+</div>
+<footer>STM32 Embedded Study · NUCLEO-F446RE · UART / SPI / I2C Analysis</footer>
+</body>
+</html>
