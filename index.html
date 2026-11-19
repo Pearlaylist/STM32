@@ -29,8 +29,8 @@ footer{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
 <body>
 <header><div class="hero">
 <div class="eyebrow">EMBEDDED STUDY · SOURCE-CODE TRACE</div>
-<h1>STM32F446RE<br>UART · SPI · I2C 심층 분석</h1>
-<p>CubeMX 생성 코드의 파일 구조와 호출 관계부터 HAL Driver가 메모리 맵 레지스터에 설정값을 기록하는 과정까지 추적한다. 현재 프로젝트의 설정과 가능한 대안 설정을 구분해 정리한 학습 자료.</p>
+<h1>STM32F446RE<br>UART · SPI · I2C 코드 분석</h1>
+<p>CubeMX를 통해 생성한 코드의 파일 구조와 호출 관계부터 HAL Driver가 메모리 맵 레지스터에 설정값을 기록하는 과정까지 추적. 현재 프로젝트의 설정과 가능한 대안 설정을 구분해 정리!</p>
 <div class="pills"><span class="pill">NUCLEO-F446RE</span><span class="pill">STM32F446RET6</span><span class="pill">LQFP64</span><span class="pill">CubeMX 6.18.1</span><span class="pill">STM32Cube FW_F4 V1.28.3</span></div>
 </div></header>
 <div class="wrap">
@@ -50,7 +50,6 @@ footer{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
 </nav>
 <main>
 <section id="scope">
-<span class="tag g">새로 업로드한 ZIP 기준</span>
 <h2>1. 분석 기준 및 프로젝트 개요</h2>
 <p class="lead">생성된 <code>week_communication_study project </code> 안의 실제 파일을 기준.</p>
 <div class="grid">
@@ -58,7 +57,7 @@ footer{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
 <div class="metric"><small>MCU / 패키지</small><strong>STM32F446RET6 · LQFP64</strong></div>
 <div class="metric"><small>통신 인스턴스</small><strong>USART1 · SPI2 · I2C1</strong></div>
 </div>
-<table><tr><th>항목</th><th>ZIP에서 확인한 값</th></tr>
+<table><tr><th>항목</th><th>Project에서 확인한 값</th></tr>
 <tr><td>CubeMX</td><td><code>MxCube.Version=6.18.1</code></td></tr>
 <tr><td>Firmware</td><td><code>STM32Cube FW_F4 V1.28.3</code></td></tr>
 <tr><td>코드 생성 구조</td><td>주변장치별 C/H 분리 생성 활성화: <code>ProjectManager.CoupleFile=true</code></td></tr>
@@ -98,7 +97,7 @@ footer{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
          ├─ stm32f4xx_hal_spi.c
          ├─ stm32f4xx_hal_i2c.c
          └─ stm32f4xx_hal_gpio.c</code></pre>
-<table><tr><th>파일</th><th>역할</th><th>이번 분석에서 볼 것</th></tr>
+<table><tr><th>파일</th><th>역할</th><th>확인 값</th></tr>
 <tr><td><code>week_communication_study.ioc</code></td><td>CubeMX 원본 설정 저장</td><td>선택한 인스턴스, 핀, 프로젝트 생성 옵션</td></tr>
 <tr><td><code>main.c</code></td><td>프로그램 진입점 및 전체 초기화 순서</td><td>각 <code>MX_xxx_Init()</code> 호출, Clock, main loop</td></tr>
 <tr><td><code>main.h</code></td><td>공통 헤더와 핀 매크로</td><td>HAL include, 보드 핀 define</td></tr>
@@ -110,7 +109,7 @@ footer{text-align:center;color:var(--muted);padding:26px;font-size:.85rem}
 <tr><td><code>stm32f446xx.h</code></td><td>MCU CMSIS 디바이스 정의</td><td>주변장치 Base Address, 레지스터 구조체</td></tr>
 <tr><td><code>stm32f4xx_hal_*.c</code></td><td>ST HAL 라이브러리 구현</td><td>Init 구조체 값을 실제 레지스터에 쓰는 코드</td></tr>
 </table>
-<div class="pinkcall"><b>파일이 분리된 이유</b><br><code>ProjectManager.CoupleFile=true</code>가 켜져 있어 주변장치 초기화 코드가 <code>usart.c</code>, <code>spi.c</code>, <code>i2c.c</code>로 분리되었다. 이는 Advanced 프로젝트 구조와 별개의 Code Generator 옵션이다.</div>
+<div class="pinkcall"><b>파일 분리 구조: </b><br><code>ProjectManager.CoupleFile=true</code>설정을 활성화 하여 주변장치 초기화 코드가 <code>usart.c</code>, <code>spi.c</code>, <code>i2c.c</code>로 분리되었다. 이는 Advanced 프로젝트 구조와 별개의 Code Generator 옵션이다.</div>
 </section>
 
 <section id="links">
@@ -175,8 +174,8 @@ huart1.Instance-&gt;CR1
 huart1.Instance-&gt;BRR
 
 /* USART1을 선택했다면 각각 USART1 CR1, BRR 레지스터 접근 */</code></pre>
-<p><code>USART1</code>은 단순한 문자열이 아니라 Base Address를 USART 레지스터 구조체 포인터로 형변환한 매크로다. 따라서 <code>huart1.Instance-&gt;CR1</code>은 USART1의 CR1 메모리 맵 레지스터를 가리킨다.</p>
-<div class="call"><b>중요한 차이:</b> <code>huart1.Init.BaudRate</code>는 RAM에 있는 HAL 설정 구조체 필드다. 이것 자체가 하드웨어 BRR 주소는 아니다. <code>HAL_UART_Init()</code> 내부에서 이 값을 계산·변환한 뒤 <code>huart1.Instance-&gt;BRR</code>에 기록한다.</div>
+<p><code>USART1</code>은 단순한 문자열이 아니라 Base Address를 USART 레지스터 구조체 포인터로 형변환한 매크로. 따라서 <code>huart1.Instance-&gt;CR1</code>은 USART1의 CR1 메모리 맵 레지스터를 가리킨다.</p>
+<div class="call"><b>중요한 차이:</b> <code>huart1.Init.BaudRate</code>는 RAM에 있는 HAL 설정 구조체 필드다. 이것 자체가 하드웨어 BRR 주소는 아님. <code>HAL_UART_Init()</code> 내부에서 이 값을 계산·변환한 뒤 <code>huart1.Instance-&gt;BRR</code>에 기록한다.</div>
 </section>
 
 <section id="main">
@@ -187,7 +186,7 @@ huart1.Instance-&gt;BRR
 #include "spi.h"
 #include "usart.h"
 #include "gpio.h"</code></pre>
-<p>main.c가 각 주변장치 헤더를 포함하기 때문에 초기화 함수와 핸들 선언을 사용할 수 있다.</p>
+<p>main.c가 각 주변장치 헤더를 포함하기 때문에 초기화 함수와 핸들 선언을 사용할 수 있음.</p>
 <h3>5-2. 초기화 호출 순서</h3>
 <pre><code>HAL_Init();
 SystemClock_Config();
